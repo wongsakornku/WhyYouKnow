@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+
+# SPA Client-side Routing Fallback (ป้องกัน Error 404 เวลารีเฟรชหน้าเว็บ)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

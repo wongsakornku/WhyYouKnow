@@ -1,0 +1,9 @@
+.git
+.gitignore
+.run
+logs
+server/.venv
+node_modules
+.pytest_cache
+*.log
+

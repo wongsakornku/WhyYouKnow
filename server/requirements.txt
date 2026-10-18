@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+google-auth
+requests
+python-dotenv
+pytest
+httpx
+pymysql
+cryptography
