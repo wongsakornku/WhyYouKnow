@@ -27,16 +27,10 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 
--- 3. Login Logs Table
-CREATE TABLE IF NOT EXISTS login_logs (
-  id SERIAL PRIMARY KEY,
-  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  at VARCHAR(64) NOT NULL,
-  ip_hmac VARCHAR(64) NOT NULL,
-  ua_short VARCHAR(128)
-);
+-- Optional: Drop deprecated login_logs table to free storage
+-- DROP TABLE IF EXISTS login_logs;
 
--- 4. OAuth Clients Table
+-- 3. OAuth Clients Table
 CREATE TABLE IF NOT EXISTS oauth_clients (
   id SERIAL PRIMARY KEY,
   client_id VARCHAR(64) NOT NULL UNIQUE,

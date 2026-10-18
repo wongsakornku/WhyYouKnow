@@ -115,6 +115,28 @@ async function logAudit(
   }
 }
 
+// Opportunistic cleanup: prunes expired sessions, tokens, codes, and audit logs older than 14 days
+let lastCleanup = 0
+async function cleanupExpiredData() {
+  const nowMs = Date.now()
+  // Run at most once every 30 minutes to minimize database queries
+  if (nowMs - lastCleanup < 30 * 60 * 1000) return
+  lastCleanup = nowMs
+
+  const now = nowIso()
+  const cutoff14Days = new Date(nowMs - 14 * 86400 * 1000).toISOString()
+
+  try {
+    await query('DELETE FROM sessions WHERE expires_at < $1', [now])
+    await query('DELETE FROM oauth_codes WHERE expires_at < $1 OR used = TRUE', [now])
+    await query('DELETE FROM oauth_tokens WHERE expires_at < $1', [now])
+    await query('DELETE FROM oauth_refresh_tokens WHERE expires_at < $1 OR revoked = TRUE', [now])
+    await query('DELETE FROM audit_logs WHERE created_at < $1', [cutoff14Days])
+  } catch (err) {
+    console.error('[CLEANUP_ERROR]', err)
+  }
+}
+
 // In-memory rate limiting and brute-force tracking
 const attemptsMap = new Map<string, number[]>()
 const failedExchanges = new Map<string, number[]>()
@@ -317,11 +339,6 @@ app.post('/auth/google', async (c) => {
     sessionExp,
   ])
 
-  await query(
-    'INSERT INTO login_logs (user_id, at, ip_hmac, ua_short) VALUES ($1, $2, $3, $4)',
-    [user.id, now, hashIp(ip), shortUa(c.req.header('user-agent'))]
-  )
-
   await logAudit(
     'LOGIN',
     user.id,
@@ -333,6 +350,9 @@ app.post('/auth/google', async (c) => {
     ip,
     c.req.header('user-agent') || ''
   )
+
+  // Trigger opportunistic cleanup in background
+  cleanupExpiredData().catch(() => {})
 
   const isCookieSecure = process.env.COOKIE_SECURE !== 'false'
   setCookie(c, 'session', sessionToken, {
@@ -486,6 +506,8 @@ app.get('/admin/dashboard-stats', async (c) => {
     `SELECT id, event_type, user_email, client_name, action_by, details, created_at
      FROM audit_logs ORDER BY id DESC LIMIT 5`
   )
+
+  cleanupExpiredData().catch(() => {})
 
   return c.json({
     total_apps: parseInt(totalAppsRow?.c || '0', 10),
@@ -1449,18 +1471,6 @@ app.post('/oauth/authorize', async (c) => {
     [codeHash, body.client_id, user.id, body.redirect_uri, body.code_challenge || null, body.code_challenge_method || 'S256', codeExp]
   )
 
-  await logAudit(
-    'OAUTH_AUTHORIZE',
-    user.id,
-    user.email,
-    client.client_id,
-    client.client_name,
-    user.email,
-    { redirect_uri: body.redirect_uri },
-    ip,
-    c.req.header('user-agent') || ''
-  )
-
   return c.json({ code, redirect_uri: body.redirect_uri })
 })
 
@@ -1639,19 +1649,6 @@ app.post('/oauth/token', async (c) => {
       [refreshHash, body.client_id, codeRow.user_id, refreshExp, now]
     )
 
-    const uRow = await queryOne<{ email: string }>('SELECT email FROM users WHERE id = $1', [codeRow.user_id])
-    await logAudit(
-      'OAUTH_TOKEN',
-      codeRow.user_id,
-      uRow?.email || null,
-      client.client_id,
-      client.client_name,
-      client.client_id,
-      { grant_type: body.grant_type },
-      ip,
-      c.req.header('user-agent') || ''
-    )
-
     return c.json({
       access_token: accessToken,
       token_type: 'Bearer',
@@ -1727,19 +1724,6 @@ app.post('/oauth/token', async (c) => {
     await query(
       'INSERT INTO oauth_refresh_tokens (token_hash, client_id, user_id, expires_at, revoked, created_at) VALUES ($1, $2, $3, $4, FALSE, $5)',
       [newRfHash, body.client_id, rfRow.user_id, rfExp, now]
-    )
-
-    const uRow = await queryOne<{ email: string }>('SELECT email FROM users WHERE id = $1', [rfRow.user_id])
-    await logAudit(
-      'TOKEN_REFRESHED',
-      rfRow.user_id,
-      uRow?.email || null,
-      client.client_id,
-      client.client_name,
-      client.client_id,
-      { grant_type: 'refresh_token' },
-      ip,
-      c.req.header('user-agent') || ''
     )
 
     return c.json({

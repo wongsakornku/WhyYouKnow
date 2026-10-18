@@ -44,8 +44,9 @@ export default function App() {
       const user = loggedIn.is_admin !== undefined ? loggedIn : await api.me()
       setProfile(user)
       setError(null)
-    } catch {
-      setError('เซิร์ฟเวอร์ปฏิเสธการเข้าสู่ระบบ')
+    } catch (err: any) {
+      console.error('Login error:', err)
+      setError(err?.message || 'เซิร์ฟเวอร์ปฏิเสธการเข้าสู่ระบบ')
     }
   }
 
