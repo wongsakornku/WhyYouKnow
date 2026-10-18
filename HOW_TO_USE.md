@@ -1,17 +1,17 @@
 # 📘 How to Use WhyYouKnow — Developer Integration Guide (OAuth 2.0 & SSO)
 
-คู่มือฉบับสมบูรณ์สำหรับนักพัฒนาในการนำแอปพลิเคชันภายนอก (Web App, SPA, Backend API) มาเชื่อมต่อระบบยืนยันตัวตนแบบรวมศูนย์ (**Single Sign-On / OAuth 2.0 Provider**) กับ **WhyYouKnow**
+คู่มือฉบับสมบูรณ์สำหรับนักพัฒนาในการนำแอปพลิเคชันภายนอก (Web App, SPA, Backend API) มาเชื่อมต่อระบบยืนยันตัวตนแบบรวมศูนย์ (**Single Sign-On / OAuth 2.0 Provider**) กับ **WhyYouKnow** (รันบน Netlify Serverless + Supabase PostgreSQL)
 
 ---
 
 ## 🌐 1. ข้อมูลเซิร์ฟเวอร์ (Environment URLs)
 
-คุณสามารถเลือกเชื่อมต่อกับเซิร์ฟเวอร์ Production บน Google Cloud Run หรือเซิร์ฟเวอร์ Local สำหรับพัฒนาได้ดังนี้:
+บน Netlify ทั้งหน้าเว็บ Frontend และ Serverless API จะทำงานอยู่ภายใต้ **Domain เดียวกัน** อย่างเป็นเอกภาพ:
 
-| รายการ | Production (Google Cloud Run) | Local Development |
+| รายการ | Production (Netlify) | Local Development |
 | :--- | :--- | :--- |
-| **Frontend / Consent URL** *(สำหรับส่งผู้ใช้ไปหน้า Login)* | `https://tiered-web-app-fe-e7mkoeotya-as.a.run.app` | `http://localhost:5173` |
-| **Backend API Base URL** *(สำหรับแลกเปลี่ยน Token / ดึงข้อมูลผู้ใช้)* | `https://tiered-web-app-api-15965476821.asia-southeast1.run.app` *(หรือผ่าน Proxy ของ Frontend ที่ `/api/...`)* | `http://localhost:8000` |
+| **Frontend / Consent URL** *(สำหรับส่งผู้ใช้ไปหน้า Login)* | `https://<YOUR-APP>.netlify.app` | `http://localhost:5173` |
+| **Backend API Base URL** *(สำหรับแลกเปลี่ยน Token / ดึงข้อมูลผู้ใช้)* | `https://<YOUR-APP>.netlify.app/api` | `http://localhost:5173/api` *(หรือ `http://localhost:8888/api`)* |
 
 ---
 
@@ -23,7 +23,7 @@ sequenceDiagram
     actor User as ผู้ใช้งาน (User)
     participant App as แอปของคุณ (Client App)
     participant WYK_FE as WhyYouKnow (Consent UI)
-    participant WYK_API as WhyYouKnow (Backend API)
+    participant WYK_API as WhyYouKnow (Netlify Serverless API)
 
     User->>App: กดปุ่ม "Login with WhyYouKnow"
     App->>WYK_FE: Redirect ไปที่ /?client_id=...&redirect_uri=...&state=...
@@ -67,7 +67,7 @@ sequenceDiagram
 ให้แอปของคุณส่ง (Redirect) เบราว์เซอร์ของผู้ใช้ไปยัง URL หน้าเว็บของ WhyYouKnow พร้อม Query Parameters:
 
 ```text
-GET {WHYYOUKNOW_FRONTEND_URL}/?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&state={RANDOM_STATE}&code_challenge={PKCE_CHALLENGE}&code_challenge_method=S256
+GET https://<YOUR-APP>.netlify.app/?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&state={RANDOM_STATE}&code_challenge={PKCE_CHALLENGE}&code_challenge_method=S256
 ```
 
 | Parameter | จำเป็น | คำอธิบาย |
@@ -94,7 +94,7 @@ https://your-app.com/auth/callback?code=wyk_code_xxxxxx&state=xyz123
 **Request:**
 ```http
 POST /api/oauth/token HTTP/1.1
-Host: tiered-web-app-api-15965476821.asia-southeast1.run.app
+Host: <YOUR-APP>.netlify.app
 Content-Type: application/json
 
 {
@@ -106,7 +106,7 @@ Content-Type: application/json
   "code_verifier": "PKCE_CODE_VERIFIER_IF_USED"
 }
 ```
-*(หมายเหตุ: Authorization Code มีอายุ 5 นาที และใช้งานได้เพียงครั้งเดียว ห้ามนำกลับมาใช้ซ้ำ)*
+*(หมายเหตุ: Authorization Code มีอายุ 10 นาที และใช้งานได้เพียงครั้งเดียว ห้ามนำกลับมาใช้ซ้ำ)*
 
 **Response (`200 OK`):**
 ```json
@@ -127,7 +127,7 @@ Content-Type: application/json
 **Request:**
 ```http
 GET /api/oauth/userinfo HTTP/1.1
-Host: tiered-web-app-api-15965476821.asia-southeast1.run.app
+Host: <YOUR-APP>.netlify.app
 Authorization: Bearer wyk_at_...
 ```
 
@@ -208,8 +208,7 @@ Authorization: Bearer wyk_at_...
 
 #### ไฟล์ `src/auth/whyyouknow.ts`
 ```typescript
-const WYK_FRONTEND_URL = 'https://tiered-web-app-fe-e7mkoeotya-as.a.run.app';
-const WYK_API_URL = 'https://tiered-web-app-api-15965476821.asia-southeast1.run.app';
+const WYK_BASE_URL = 'https://<YOUR-APP>.netlify.app';
 const CLIENT_ID = 'wyk_your_public_client_id';
 const REDIRECT_URI = `${window.location.origin}/auth/callback`;
 
@@ -253,7 +252,7 @@ export async function loginWithWhyYouKnow() {
     code_challenge_method: 'S256',
   });
 
-  window.location.href = `${WYK_FRONTEND_URL}/?${params.toString()}`;
+  window.location.href = `${WYK_BASE_URL}/?${params.toString()}`;
 }
 
 // 3. ฟังก์ชันจัดการหน้า Callback (/auth/callback)
@@ -279,7 +278,7 @@ export async function handleOAuthCallback() {
   sessionStorage.removeItem('wyk_code_verifier');
 
   // แลกเปลี่ยน Code เป็น Token
-  const tokenRes = await fetch(`${WYK_API_URL}/api/oauth/token`, {
+  const tokenRes = await fetch(`${WYK_BASE_URL}/api/oauth/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -306,7 +305,7 @@ export async function handleOAuthCallback() {
 
 // 4. ฟังก์ชันดึงข้อมูลผู้ใช้และ Role
 export async function fetchUserProfile(accessToken: string) {
-  const res = await fetch(`${WYK_API_URL}/api/oauth/userinfo`, {
+  const res = await fetch(`${WYK_BASE_URL}/api/oauth/userinfo`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) throw new Error('ไม่สามารถดึงข้อมูลผู้ใช้ได้');
@@ -334,8 +333,7 @@ import crypto from 'crypto';
 const app = express();
 app.use(express.json());
 
-const WYK_FRONTEND_URL = process.env.WYK_FRONTEND_URL || 'https://tiered-web-app-fe-e7mkoeotya-as.a.run.app';
-const WYK_API_URL = process.env.WYK_API_URL || 'https://tiered-web-app-api-15965476821.asia-southeast1.run.app';
+const WYK_BASE_URL = process.env.WYK_BASE_URL || 'https://<YOUR-APP>.netlify.app';
 const CLIENT_ID = process.env.WYK_CLIENT_ID;
 const CLIENT_SECRET = process.env.WYK_CLIENT_SECRET;
 const REDIRECT_URI = 'http://localhost:3000/auth/callback';
@@ -349,7 +347,7 @@ app.get('/auth/login', (req, res) => {
     redirect_uri: REDIRECT_URI,
     state,
   });
-  res.redirect(`${WYK_FRONTEND_URL}/?${params.toString()}`);
+  res.redirect(`${WYK_BASE_URL}/?${params.toString()}`);
 });
 
 // 2. รับ Authorization Code จาก Callback และแลกเป็น Token
@@ -361,7 +359,7 @@ app.get('/auth/callback', async (req, res) => {
 
   try {
     // 2.1 แลก Code เป็น Access Token + Refresh Token
-    const tokenResponse = await fetch(`${WYK_API_URL}/api/oauth/token`, {
+    const tokenResponse = await fetch(`${WYK_BASE_URL}/api/oauth/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -381,7 +379,7 @@ app.get('/auth/callback', async (req, res) => {
     const tokens = await tokenResponse.json();
 
     // 2.2 ดึงข้อมูลผู้ใช้และ Role ประจำแอป
-    const userResponse = await fetch(`${WYK_API_URL}/api/oauth/userinfo`, {
+    const userResponse = await fetch(`${WYK_BASE_URL}/api/oauth/userinfo`, {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
     const user = await userResponse.json();
@@ -415,8 +413,7 @@ from fastapi.responses import RedirectResponse
 
 app = FastAPI()
 
-WYK_FRONTEND_URL = os.getenv("WYK_FRONTEND_URL", "https://tiered-web-app-fe-e7mkoeotya-as.a.run.app")
-WYK_API_URL = os.getenv("WYK_API_URL", "https://tiered-web-app-api-15965476821.asia-southeast1.run.app")
+WYK_BASE_URL = os.getenv("WYK_BASE_URL", "https://<YOUR-APP>.netlify.app")
 CLIENT_ID = os.getenv("WYK_CLIENT_ID", "wyk_your_client_id")
 CLIENT_SECRET = os.getenv("WYK_CLIENT_SECRET", "wyk_sec_your_secret")
 REDIRECT_URI = "http://localhost:3000/auth/callback"
@@ -424,7 +421,7 @@ REDIRECT_URI = "http://localhost:3000/auth/callback"
 
 @app.get("/auth/login")
 def login():
-    url = f"{WYK_FRONTEND_URL}/?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}"
+    url = f"{WYK_BASE_URL}/?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}"
     return RedirectResponse(url)
 
 
@@ -433,7 +430,7 @@ async def callback(code: str):
     async with httpx.AsyncClient() as client:
         # 1. แลกเปลี่ยน Code เป็น Token
         token_res = await client.post(
-            f"{WYK_API_URL}/api/oauth/token",
+            f"{WYK_BASE_URL}/api/oauth/token",
             json={
                 "grant_type": "authorization_code",
                 "client_id": CLIENT_ID,
@@ -449,7 +446,7 @@ async def callback(code: str):
 
         # 2. ดึงข้อมูล UserInfo + Role
         user_res = await client.get(
-            f"{WYK_API_URL}/api/oauth/userinfo",
+            f"{WYK_BASE_URL}/api/oauth/userinfo",
             headers={"Authorization": f"Bearer {tokens['access_token']}"},
         )
         user = user_res.json()
@@ -461,7 +458,7 @@ async def callback(code: str):
 async def get_current_wyk_user(authorization: str = Header(...)):
     async with httpx.AsyncClient() as client:
         res = await client.get(
-            f"{WYK_API_URL}/api/oauth/userinfo",
+            f"{WYK_BASE_URL}/api/oauth/userinfo",
             headers={"Authorization": authorization},
         )
         if res.status_code != 200:
@@ -495,4 +492,3 @@ async def delete_project(project_id: int, user: dict = Depends(get_current_wyk_u
 | `403` | `client_disabled: this client application has been disabled` | แอปพลิเคชันของคุณถูกปิดสวิตช์การใช้งานชั่วคราวในหน้า Admin |
 | `429` | `brute_force_protection: too many failed attempts...` | ส่งรหัสผิดพลาดติดต่อกันเกิน 5 ครั้ง ระบบบล็อกชั่วคราว 15 นาที |
 | `429` | `too many attempts, try again later` | เรียก API เกินอัตราที่กำหนด (**Suspicious IP Throttling**) ให้รอ 60 วินาที |
-
