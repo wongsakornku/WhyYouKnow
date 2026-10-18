@@ -10,8 +10,8 @@
 
 | รายการ | Production (Netlify) | Local Development |
 | :--- | :--- | :--- |
-| **Frontend / Consent URL** *(สำหรับส่งผู้ใช้ไปหน้า Login)* | `https://<YOUR-APP>.netlify.app` | `http://localhost:5173` |
-| **Backend API Base URL** *(สำหรับแลกเปลี่ยน Token / ดึงข้อมูลผู้ใช้)* | `https://<YOUR-APP>.netlify.app/api` | `http://localhost:5173/api` *(หรือ `http://localhost:8888/api`)* |
+| **Frontend / Consent URL** *(สำหรับส่งผู้ใช้ไปหน้า Login)* | `https://whyyouknow.netlify.app` | `http://localhost:5173` |
+| **Backend API Base URL** *(สำหรับแลกเปลี่ยน Token / ดึงข้อมูลผู้ใช้)* | `https://whyyouknow.netlify.app/api` | `http://localhost:5173/api` *(หรือ `http://localhost:8888/api`)* |
 
 ---
 
@@ -67,7 +67,7 @@ sequenceDiagram
 ให้แอปของคุณส่ง (Redirect) เบราว์เซอร์ของผู้ใช้ไปยัง URL หน้าเว็บของ WhyYouKnow พร้อม Query Parameters:
 
 ```text
-GET https://<YOUR-APP>.netlify.app/?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&state={RANDOM_STATE}&code_challenge={PKCE_CHALLENGE}&code_challenge_method=S256
+GET https://whyyouknow.netlify.app/?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&state={RANDOM_STATE}&code_challenge={PKCE_CHALLENGE}&code_challenge_method=S256
 ```
 
 | Parameter | จำเป็น | คำอธิบาย |
@@ -208,7 +208,7 @@ Authorization: Bearer wyk_at_...
 
 #### ไฟล์ `src/auth/whyyouknow.ts`
 ```typescript
-const WYK_BASE_URL = 'https://<YOUR-APP>.netlify.app';
+const WYK_BASE_URL = 'https://whyyouknow.netlify.app';
 const CLIENT_ID = 'wyk_your_public_client_id';
 const REDIRECT_URI = `${window.location.origin}/auth/callback`;
 
@@ -333,7 +333,7 @@ import crypto from 'crypto';
 const app = express();
 app.use(express.json());
 
-const WYK_BASE_URL = process.env.WYK_BASE_URL || 'https://<YOUR-APP>.netlify.app';
+const WYK_BASE_URL = process.env.WYK_BASE_URL || 'https://whyyouknow.netlify.app';
 const CLIENT_ID = process.env.WYK_CLIENT_ID;
 const CLIENT_SECRET = process.env.WYK_CLIENT_SECRET;
 const REDIRECT_URI = 'http://localhost:3000/auth/callback';
@@ -413,7 +413,7 @@ from fastapi.responses import RedirectResponse
 
 app = FastAPI()
 
-WYK_BASE_URL = os.getenv("WYK_BASE_URL", "https://<YOUR-APP>.netlify.app")
+WYK_BASE_URL = os.getenv("WYK_BASE_URL", "https://whyyouknow.netlify.app")
 CLIENT_ID = os.getenv("WYK_CLIENT_ID", "wyk_your_client_id")
 CLIENT_SECRET = os.getenv("WYK_CLIENT_SECRET", "wyk_sec_your_secret")
 REDIRECT_URI = "http://localhost:3000/auth/callback"
