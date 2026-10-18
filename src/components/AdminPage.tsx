@@ -1830,7 +1830,7 @@ export default function AdminPage({ initialTab = 'apps' }: AdminPageProps = {}) 
                       <td className="p-3 font-mono text-[11px] text-slate-600 max-w-xs break-all">
                         {log.details ? (
                           <span className="bg-slate-50 p-1 rounded border border-slate-100">
-                            {log.details}
+                            {typeof log.details === 'object' ? JSON.stringify(log.details) : log.details}
                           </span>
                         ) : (
                           <span className="text-slate-400">-</span>

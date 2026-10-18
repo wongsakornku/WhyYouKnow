@@ -431,12 +431,16 @@ app.get('/me/dashboard', async (c) => {
     [user.id]
   )
 
-  const recentActivity = await query(
+  const recentActivityRaw = await query<any>(
     `SELECT id, event_type, client_name, created_at, details
      FROM audit_logs WHERE user_id = $1
      ORDER BY id DESC LIMIT 5`,
     [user.id]
   )
+  const recentActivity = recentActivityRaw.map((r) => ({
+    ...r,
+    details: typeof r.details === 'object' && r.details !== null ? JSON.stringify(r.details) : (r.details || null),
+  }))
 
   return c.json({
     profile: user,
@@ -502,10 +506,14 @@ app.get('/admin/dashboard-stats', async (c) => {
   const activeSessionsRow = await queryOne<{ c: string }>('SELECT COUNT(*) AS c FROM sessions WHERE expires_at > $1', [now])
   const activeTokensRow = await queryOne<{ c: string }>('SELECT COUNT(*) AS c FROM oauth_tokens WHERE expires_at > $1', [now])
 
-  const recentLogs = await query(
+  const recentLogsRaw = await query<any>(
     `SELECT id, event_type, user_email, client_name, action_by, details, created_at
      FROM audit_logs ORDER BY id DESC LIMIT 5`
   )
+  const recentLogs = recentLogsRaw.map((r) => ({
+    ...r,
+    details: typeof r.details === 'object' && r.details !== null ? JSON.stringify(r.details) : (r.details || null),
+  }))
 
   cleanupExpiredData().catch(() => {})
 
@@ -1199,11 +1207,15 @@ app.get('/admin/audit-logs', async (c) => {
   const total = parseInt(countRow?.total || '0', 10)
 
   const dataParams = [...params, limit, offset]
-  const rows = await query(
+  const rowsRaw = await query<any>(
     `SELECT id, event_type, user_id, user_email, client_id, client_name, action_by, details, ip_hmac, ua_short, created_at
      FROM audit_logs ${whereSql} ORDER BY id DESC LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
     dataParams
   )
+  const rows = rowsRaw.map((r) => ({
+    ...r,
+    details: typeof r.details === 'object' && r.details !== null ? JSON.stringify(r.details) : (r.details || null),
+  }))
 
   return c.json({ logs: rows, total })
 })

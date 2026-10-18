@@ -440,7 +440,9 @@ export default function DashboardView({ profile, onSignOut, onNavigateAdminTab }
                       {act.client_name || '-'}
                     </td>
                     <td className="p-3 text-slate-500 font-mono text-[11px]">
-                      {act.details || '-'}
+                      {typeof act.details === 'object' && act.details !== null
+                        ? JSON.stringify(act.details)
+                        : act.details || '-'}
                     </td>
                   </tr>
                 ))}
