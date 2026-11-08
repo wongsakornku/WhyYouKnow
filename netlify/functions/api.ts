@@ -68,12 +68,6 @@ function validateRedirectUri(uri: string): void {
     if (!['http:', 'https:'].includes(parsed.protocol)) {
       throw new Error('Only http and https allowed')
     }
-    if (parsed.protocol === 'http:') {
-      const host = parsed.hostname.toLowerCase()
-      if (!['localhost', '127.0.0.1', '::1'].includes(host)) {
-        throw new Error('http redirect_uri only allowed for localhost')
-      }
-    }
     if (parsed.hash) {
       throw new Error('redirect_uri must not contain fragment identifier')
     }

@@ -186,10 +186,6 @@ def validate_redirect_uri(uri: str) -> None:
         raise HTTPException(400, f"invalid redirect_uri format: {uri}")
     if parsed.scheme not in ("http", "https"):
         raise HTTPException(400, f"invalid scheme in redirect_uri: {uri}. Only http and https allowed")
-    if parsed.scheme == "http":
-        hostname = (parsed.hostname or "").lower()
-        if hostname not in ("localhost", "127.0.0.1", "::1"):
-            raise HTTPException(400, f"http redirect_uri only allowed for localhost: {uri}")
     if parsed.fragment:
         raise HTTPException(400, f"redirect_uri must not contain a fragment identifier: {uri}")
 
