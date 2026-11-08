@@ -266,6 +266,29 @@ app.use('*', async (c, next) => {
 // --- Health Check ---
 app.get('/health', (c) => c.json({ status: 'ok' }))
 
+app.get('/health/db', async (c) => {
+  try {
+    const res = await query('SELECT 1 as connected')
+    return c.json({ status: 'ok', data: res })
+  } catch (err: any) {
+    console.error('[HEALTH_DB_ERROR]', err)
+    return c.json(
+      {
+        status: 'error',
+        message: err.message || String(err),
+        code: err.code,
+        hasDbUrl: Boolean(process.env.DATABASE_URL),
+      },
+      500
+    )
+  }
+})
+
+app.onError((err, c) => {
+  console.error('[API_ERROR]', err)
+  return c.json({ detail: err.message || 'Internal Server Error' }, 500)
+})
+
 // --- Auth Endpoints ---
 
 app.post('/auth/google', async (c) => {
